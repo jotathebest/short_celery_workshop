@@ -5,15 +5,13 @@ import pytz
 
 from celery import Celery
 
-app = Celery("hello", broker="redis://localhost")
+app = Celery("test-broker")
 app.conf.broker_url = "redis://localhost:6379/0"
+default_config = 'celeryconfig'
+app.config_from_object(default_config)
+app.conf.broker_transport_options = {'visibility_timeout': 60}
 
 logger = logging.getLogger(__name__)
-
-
-def get_localized_now():
-    now = datetime.datetime.now(tz=datetime.timezone.utc)
-    return now
 
 
 def get_localized_now_with_pytz():
@@ -21,13 +19,20 @@ def get_localized_now_with_pytz():
     return now
 
 
-@app.task
-def timer(task_id: str, timeout: int = 10):
-    logger.info(f"Starting task with id {task_id}")
+@app.task(
+    name="timer-task",
+    retry_backoff=5,
+    retry_kwargs={'max_retries': 1},
+    queue="integrations",
+    time_limit=1200,  # 20 minutes,
+    acks_late=True
+)
+def timer(unique_task_id: str, timeout: int = 10):
+    logger.info(f"Starting task with id {unique_task_id}")
     now = get_localized_now_with_pytz()
     end = now + datetime.timedelta(seconds=timeout)
     while now < end:
-        logger.info(f"waiting for {task_id} to finish, it should finish at {end.isoformat()}")
+        logger.info(f"waiting for {unique_task_id} to finish, it should finish at {end.isoformat()}")
         time.sleep(5)
         now = get_localized_now_with_pytz()
-    logger.info(f"finished task with id {task_id}")
+    logger.info(f"finished task with id {unique_task_id}")
