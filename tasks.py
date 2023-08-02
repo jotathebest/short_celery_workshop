@@ -8,9 +8,7 @@ import pytz
 
 from celery import Celery
 
-app = Celery("test-broker")
-default_config = 'celeryconfig'
-app.config_from_object(default_config)
+app = Celery("hello", broker="redis://localhost/0", backend="redis://localhost:6379")
 app.conf.broker_transport_options = {'visibility_timeout': 30}  # 30 seconds.
 
 logger = logging.getLogger(__name__)
